@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TrendFinder — 오늘의 이슈 한눈에</title>
+  <meta name="description" content="포털 검색어, X(트위터), 유튜브, 커뮤니티 인기글을 모아 일간·주간·월간 트렌드와 급상승 이슈를 정리합니다.">
+  <meta name="referrer" content="no-referrer">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-row">
+      <a class="brand" href="#all"><span class="brand-mark">T</span>TrendFinder</a>
+      <span class="updated" id="updated"></span>
+    </div>
+    <div class="wrap bar">
+      <nav class="tabs" id="tabs">
+        <a data-tab="all" href="#all">통합</a>
+        <a data-tab="rising" href="#rising">급상승</a>
+        <a data-tab="cat" href="#cat">카테고리별</a>
+        <a data-tab="site" href="#site">사이트별</a>
+        <a data-tab="age" href="#age">연령대별</a>
+      </nav>
+      <div class="seg" id="period" role="group" aria-label="기간">
+        <button data-period="day">일간</button>
+        <button data-period="week">주간</button>
+        <button data-period="month">월간</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap" id="main"><p class="muted pad">불러오는 중…</p></main>
+
+  <footer class="wrap foot" id="foot"></footer>
+  <script src="app.js"></script>
+</body>
+</html>

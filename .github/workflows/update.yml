@@ -1,0 +1,58 @@
+name: Update data & deploy
+
+on:
+  schedule:
+    - cron: '0 22 * * *' # 매일 07:00 KST
+    - cron: '0 10 * * *' # 매일 19:00 KST
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 코드 push 때는 기존 데이터로 배포만, 스케줄/수동 실행 때만 새로 수집
+      - name: Fetch trends
+        if: github.event_name != 'push'
+        run: node scripts/update.mjs
+        env:
+          YT_API_KEY: ${{ secrets.YT_API_KEY }} # 선택: 있으면 유튜브 인기 급상승 영상도 수집
+
+      - name: Commit data
+        if: github.event_name != 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data data/history.json
+          git diff --cached --quiet || git commit -m "data: $(TZ=Asia/Seoul date '+%F %H시') 갱신"
+          git push
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
