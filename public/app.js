@@ -36,6 +36,7 @@ function topicCard(t, i, { showWhy } = {}) {
     <span class="rk">${i + 1}</span>
     <div class="body">
       <div class="tt">${link(t.u, t.t)}${delta(t.d)}</div>
+      ${t.desc ? `<div class="desc">${esc(t.desc)}</div>` : ''}
       <div class="meta">
         ${t.srcs.map(srcChip).join('')}
         <span class="cat">${esc(t.c)}</span>

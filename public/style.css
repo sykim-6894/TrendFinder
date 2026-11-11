@@ -67,6 +67,7 @@ h2 { font-size: 16px; margin: 0 0 10px; }
 .topic:nth-child(-n+3) .rk { color: var(--accent); }
 .topic .body { flex: 1; min-width: 0; }
 .tt { font-weight: 700; font-size: 16px; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.desc { margin-top: 3px; font-size: 14px; color: var(--muted); overflow-wrap: anywhere; }
 .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--muted); }
 .thumb { flex: none; width: 84px; height: 56px; object-fit: cover; border-radius: 8px; background: var(--panel2); }
 .src { display: inline-flex; align-items: center; gap: 5px; background: var(--panel2); border-radius: 6px; padding: 2px 7px; font-size: 12px; color: var(--text); white-space: nowrap; }

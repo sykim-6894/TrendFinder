@@ -39,7 +39,7 @@ const byRule = (s) => RULES.find(([, re]) => re.test(s))?.[0];
 const classify = (it, src) => it.c ?? byRule(it.t) ?? byRule((it.news ?? []).map((n) => n.t).join(' ')) ?? byRule(it.nc ?? '') ?? SOURCE_DEFAULT[src] ?? '기타';
 
 // ── 텍스트 매칭 ──────────────────────────────────────────────
-const STOP = new Set(['오늘', '어제', '내일', '관련', '근황', '영상', '사진', '공식', '속보', '단독', '종합', '현재', '진짜', '이유', '논란', '발표', '공개', 'jpg', 'gif', 'mp4', 'the', 'and', 'feat']);
+const STOP = new Set(['오늘', '어제', '내일', '관련', '근황', '영상', '사진', '공식', '속보', '단독', '종합', '현재', '진짜', '이유', '논란', '발표', '공개', 'jpg', 'gif', 'mp4', 'the', 'and', 'feat', '싱글벙글', '오싹오싹', '훌쩍훌쩍', '난리난', '난리', '요즘', '실시간', '레전드', '충격', '반응', '모음', '결국', '최근', '이번', '역대급', '후기', '정리', '사람', '사람들', '하는', '있는', '없는', '한국', '일본', '미국', '중국']);
 const norm = (s) => s.toLowerCase().replace(/[^가-힣a-z0-9]+/g, '');
 const words = (s) => s.toLowerCase().replace(/[^가-힣a-z0-9]+/g, ' ').split(' ').filter(Boolean);
 const toks = (s) => [...new Set(words(s).filter((w) => w.length >= 2 && !STOP.has(w)))];
@@ -57,12 +57,29 @@ function hit(tokens, target) {
 const pts = (r) => Math.max(1, LIST_MAX + 1 - r);
 
 // ── 통합 이슈 만들기 ─────────────────────────────────────────
+// 통합·급상승에서 빼는 잡음: X 의 기능 안내성 트렌드, 한국어가 전혀 없는 구글 검색어
+const X_NOISE = /gif|저장법|동영상|링크|붙여넣기|다운로드|테스트|복사|팔로우|맞팔|트친소/i;
+const hangul = (s) => /[가-힣]/.test(s ?? '');
+const isNoise = (src, it) =>
+  (src === 'x' && X_NOISE.test(it.t)) || (src === 'google' && !hangul(it.t) && !(it.news ?? []).some((n) => hangul(n.t)));
+
+// 두 글 제목이 같은 사건을 다루는가 (겹치는 단어 수로 어림)
+function samePost(a, b) {
+  const shared = (x, y) => x.tk.filter((w) => y.n.includes(w));
+  const s1 = shared(a, b);
+  const s2 = shared(b, a);
+  const s = s1.length >= s2.length ? s1 : s2;
+  if (s.length < 2 || !s.some((w) => w.length >= 3)) return false;
+  return s.length >= 3 || s.length / Math.min(a.tk.length, b.tk.length) >= 0.6;
+}
+
 function unify(lists) {
   const topics = [];
   const kws = [];
   const posts = [];
   for (const src of SOURCES) {
     for (const it of lists[src.id] ?? []) {
+      if (isNoise(src.id, it)) continue;
       const e = { ...it, s: src.id, w: src.w, p: (it.p ?? pts(it.r)) / (it.pmax ?? LIST_MAX), tk: toks(it.t), n: norm(it.t), wd: words(it.t) };
       (src.kind === 'kw' ? kws : posts).push(e);
     }
@@ -74,45 +91,58 @@ function unify(lists) {
     if (found) found.kw.push(k);
     else topics.push({ kw: [k], posts: [] });
   }
-  const used = new Set();
+  const rest = [];
   for (const p of posts) {
     const target = { n: p.n, w: p.wd };
     const t = topics.find((tp) => tp.kw.some((m) => hit(m.tk, target)));
-    if (t) {
-      t.posts.push(p);
-      used.add(p);
-    }
+    if (t) t.posts.push(p);
+    else rest.push(p);
   }
-  // 어떤 키워드와도 안 묶인 글은 소스별 상위 5개만 단독 이슈로
+  // 키워드와 안 묶인 글·기사는 같은 사건끼리 서로 묶는다. 혼자 남은 글은 소스별 상위 5개만 단독 이슈로
+  rest.sort((a, b) => b.w * b.p - a.w * a.p);
+  const groups = [];
+  for (const p of rest) {
+    const g = groups.find((g) => samePost(g[0], p));
+    if (g) g.push(p);
+    else groups.push([p]);
+  }
   const solo = {};
-  for (const p of posts) {
-    if (used.has(p) || (solo[p.s] = (solo[p.s] ?? 0) + 1) > 5) continue;
-    topics.push({ kw: [], posts: [p], solo: true });
+  for (const g of groups) {
+    if (g.length === 1 && (solo[g[0].s] = (solo[g[0].s] ?? 0) + 1) > 5) continue;
+    topics.push({ kw: [], posts: g, solo: true });
   }
   return topics
     .map((t) => {
       const members = [...t.kw, ...t.posts];
       const srcs = [...new Set(members.map((m) => m.s))];
-      const base = t.kw.reduce((a, m) => a + m.w * m.p, 0) + t.posts.reduce((a, m) => a + m.w * m.p * (t.solo ? 0.8 : 0.4), 0);
       const head = members[0];
+      // 글은 상위 4개까지만 점수에 반영 (같은 사건 기사가 수십 개여도 끝없이 오르지 않게)
+      const postScore = t.posts.slice(0, 4).reduce((a, m, i) => a + m.w * m.p * (t.solo ? (i ? 0.5 : 0.8) : 0.4), 0);
+      let base = t.kw.reduce((a, m) => a + m.w * m.p, 0) + postScore;
+      // 다른 곳에서 전혀 확인되지 않은 검색어는 낮춘다. 한 단어짜리는 더 낮춘다
+      if (t.kw.length && members.length === 1) base *= (head.tk.length <= 1 ? 0.55 : 0.8) * (head.s === 'x' ? 0.75 : 1);
       const kwSrcs = new Set(t.kw.map((m) => m.s)).size;
       const rise = members.reduce((a, m) => a + (m.rise ?? 0) * m.w, 0) + Math.max(0, kwSrcs - 1) * 12;
       const why = [];
       if (t.kw.some((m) => m.d === 'new' || m.f === 'new')) why.push('신규 진입');
       else if (t.kw.some((m) => m.d > 0 || m.f === 'up')) why.push('순위 상승');
-      if (srcs.length > 1) why.push(`${srcs.length}개 사이트 동시`);
+      if (srcs.length > 1) why.push(srcs.length + '개 사이트 동시');
+      const news = members.find((m) => m.news?.length)?.news;
+      // 검색어만으로는 왜 떴는지 알 수 없으니 관련 기사·글 제목 하나를 설명으로 붙인다
+      const desc = t.kw.length ? (news?.[0]?.t ?? (t.posts.find((m) => m.s === 'navernews') ?? t.posts[0])?.t) : undefined;
       return {
         t: head.t,
         u: head.u,
+        desc,
         score: Math.round(base * (1 + 0.35 * (srcs.length - 1)) * 100) / 10,
-        c: byRule(head.t) ?? members.map((m) => m.c).find((c) => c && c !== '기타') ?? head.c ?? '기타',
+        c: byRule(head.t) ?? byRule(desc ?? '') ?? members.map((m) => m.c).find((c) => c && c !== '기타') ?? head.c ?? '기타',
         srcs,
         img: members.find((m) => m.img)?.img,
         d: head.d,
         rise: Math.round(rise * 10) / 10,
         why,
         items: members.slice(0, 8).map((m) => ({ s: m.s, t: m.t, u: m.u, r: m.r, m: m.m })),
-        news: members.find((m) => m.news?.length)?.news,
+        news,
       };
     })
     .sort((a, b) => b.score - a.score);
@@ -131,7 +161,11 @@ await Promise.all(
       const list = await src.run();
       if (list === null) return void (status[src.id] = 'skip');
       if (!list.length) throw new Error('빈 목록');
-      fresh[src.id] = list.filter((it) => it.t).slice(0, 60);
+      const seen = new Set();
+      fresh[src.id] = list
+        .filter((it) => it.t && !seen.has(keyOf(it.t)) && seen.add(keyOf(it.t)))
+        .slice(0, 60)
+        .map((it, i) => ({ ...it, r: i + 1 }));
       status[src.id] = 'ok';
       console.log(`✓ ${src.name}: ${list.length}건`);
     } catch (e) {
@@ -255,6 +289,7 @@ async function collectAges() {
 }
 let ages = prevOut?.ages ?? null;
 try {
+  if (process.env.SKIP_AGES) throw new Error('SKIP_AGES 로 건너뜀');
   const got = await collectAges();
   if (Object.values(got.week).some((v) => v.length)) ages = got;
   status.datalab = 'ok';
