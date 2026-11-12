@@ -94,7 +94,7 @@ async function navernews() {
 }
 
 // ── SNS·영상 ─────────────────────────────────────────────────
-async function x() {
+async function xFromTrends24() {
   const html = await getText('https://trends24.in/korea/');
   const cards = [...html.matchAll(/<ol class=["']?trend-card__list["']?>([\s\S]*?)<\/ol>/g)].slice(0, 24).map(([, ol]) =>
     [...ol.matchAll(/<a href="[^"]*"[^>]*class=["']?trend-link["']?>([\s\S]*?)<\/a>(?:<span class=["']?tweet-count["']? data-count=["']?(\d*)["']?)?/g)].map(
@@ -111,6 +111,30 @@ async function x() {
       m: it.n ? `게시물 ${compact(it.n)}` : hours.get(it.t) > 1 ? `${hours.get(it.t)}시간째 트렌드` : '',
     })),
   );
+}
+
+async function xFromGetdaytrends() {
+  const html = await getText('https://getdaytrends.com/korea/');
+  const out = [...html.matchAll(/<th scope="row" class="pos">(\d+)<\/th><td class="main"><a class="string" href="[^"]*">([\s\S]*?)<\/a>/g)]
+    .slice(0, 30)
+    .map((m) => ({ t: text(m[2]), u: `https://x.com/search?q=${q(text(m[2]))}`, r: Number(m[1]) }));
+  if (!out.length) throw new Error('목록을 찾지 못함');
+  return out;
+}
+
+// 한쪽이 막혀도 다른 쪽으로 이어 받는다
+async function x() {
+  try {
+    return await xFromTrends24();
+  } catch (e1) {
+    try {
+      const list = await xFromGetdaytrends();
+      console.warn(`  (X: trends24 실패 → getdaytrends 사용: ${e1.message})`);
+      return list;
+    } catch (e2) {
+      throw new Error(`trends24: ${e1.message} / getdaytrends: ${e2.message}`);
+    }
+  }
 }
 
 async function ytmusic() {
@@ -191,21 +215,31 @@ async function dcbest() {
   return byViews(out);
 }
 
-async function fmkorea() {
-  const html = await getText('https://www.fmkorea.com/best');
+async function clien() {
+  const html = await getText('https://www.clien.net/service/board/park?od=T33');
   const out = [];
-  for (const li of html.split(/class="li\s+li_best2_pop/).slice(1)) {
-    const a = li.match(/<h3 class="title"[^>]*>\s*<a href="([^"]+)"[^>]*>\s*<span class="ellipsis-target">([\s\S]*?)<\/span>/);
+  for (const row of html.split('class="list_item symph_row').slice(1)) {
+    const a = row.match(/<a class="list_subject" href="([^"?]+)[^"]*"[\s\S]*?title="([^"]*)"/);
     if (!a) continue;
-    const v = num(li.match(/class="count">([\d,]+)/)?.[1]);
-    const srl = decode(a[1]).match(/document_srl=(\d+)/)?.[1];
-    out.push({
-      t: text(a[2]),
-      u: srl ? `https://www.fmkorea.com/${srl}` : `https://www.fmkorea.com${decode(a[1])}`,
-      m: `추천 ${compact(v)}`,
-      v,
-      nc: text(li.match(/class="category">([\s\S]*?)<\/span>/)?.[1]).replace(/\s*\/\s*$/, ''),
-    });
+    const v = num(row.match(/class="hit">([\d,]+)/)?.[1]);
+    const rec = num(row.match(/data-role="list-like-count"><span>([\d,]+)/)?.[1]);
+    out.push({ t: decode(a[2]).trim(), u: `https://www.clien.net${a[1]}`, m: `조회 ${compact(v)} · 공감 ${compact(rec)}`, v });
+  }
+  return byViews(out);
+}
+
+async function ppomppu() {
+  const html = await getText('https://www.ppomppu.co.kr/hot.php', { enc: 'euc-kr' });
+  const out = [];
+  for (const tr of html.split(/<tr class="baseList/).slice(1)) {
+    const a = tr.match(/<a href="([^"]+)" class="baseList-title" >([\s\S]*?)<\/a>/);
+    if (!a) continue;
+    const board = text(tr.match(/baseList-numb[^>]*>([\s\S]*?)<\/td>/)?.[1]);
+    const cells = [...tr.matchAll(/<td class="baseList-space board_date">([\s\S]*?)<\/td>/g)].map((m) => text(m[1]));
+    if (/스폰서/.test(board) || /^AD\s/.test(text(a[2]))) continue; // 광고글 제외
+    const v = num(cells[2]);
+    const rec = num((cells[1] ?? '').split('-')[0]);
+    out.push({ t: text(a[2]), u: `https://www.ppomppu.co.kr${decode(a[1])}`, m: `${board} · 조회 ${compact(v)}${rec ? ` · 추천 ${rec}` : ''}`, v });
   }
   return byViews(out);
 }
@@ -267,7 +301,8 @@ export const SOURCES = [
   { id: 'ytmusic', name: '유튜브 인기 뮤직비디오', group: 'SNS·영상', kind: 'post', w: 0.4, home: 'https://charts.youtube.com/charts/TrendingVideos/kr/RightNow', run: ytmusic },
   { id: 'theqoo', name: '더쿠 HOT', group: '커뮤니티', kind: 'post', w: 0.5, home: 'https://theqoo.net/hot', run: theqoo },
   { id: 'dcbest', name: '디시 실시간 베스트', group: '커뮤니티', kind: 'post', w: 0.5, home: 'https://gall.dcinside.com/board/lists/?id=dcbest', run: dcbest },
-  { id: 'fmkorea', name: '에펨코리아 포텐', group: '커뮤니티', kind: 'post', w: 0.5, home: 'https://www.fmkorea.com/best', run: fmkorea },
+  { id: 'clien', name: '클리앙 모두의공원', group: '커뮤니티', kind: 'post', w: 0.5, home: 'https://www.clien.net/service/board/park', run: clien },
+  { id: 'ppomppu', name: '뽐뿌 인기글', group: '커뮤니티', kind: 'post', w: 0.5, home: 'https://www.ppomppu.co.kr/hot.php', run: ppomppu },
   { id: 'ruliweb', name: '루리웹 베스트', group: '커뮤니티', kind: 'post', w: 0.5, home: 'https://bbs.ruliweb.com/best/humor_only', run: ruliweb },
   { id: 'instiz', name: '인스티즈 인기글', group: '커뮤니티', kind: 'post', w: 0.5, home: 'https://www.instiz.net/pt', run: instiz },
   { id: 'pann', name: '네이트판 톡커들의 선택', group: '커뮤니티', kind: 'post', w: 0.5, home: 'https://pann.nate.com/talk/ranking', run: pann },

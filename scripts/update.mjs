@@ -34,7 +34,7 @@ const RULES = [
   ['사회', /사고|화재|사망|숨져|숨진|경찰|검찰|구속|체포|기소|재판|판결|징역|살인|폭행|사기|실종|지진|태풍|폭설|한파|폭우|날씨|미세먼지|수능|교사|학교|학폭|의사|병원|파업|집회|시위|범죄|음주운전|교통|버스|지하철|중경상|부상|피해자|방화|법원/],
   ['생활·쇼핑', /맛집|레시피|요리|다이어트|건강|여행|항공권|호텔|할인|세일|블랙프라이데이|빼빼로|패딩|후리스|코트|운동화|화장품|인테리어|육아|반려|강아지|고양이|편의점|신메뉴|출시|스타벅스|카페|결혼|남친|여친|시댁|시어머니|직장|회사|퇴사|신입|연애/],
 ];
-const SOURCE_DEFAULT = { navernews: '사회', pann: '생활·쇼핑', ytmusic: '연예·방송', theqoo: '유머·커뮤니티', dcbest: '유머·커뮤니티', fmkorea: '유머·커뮤니티', ruliweb: '유머·커뮤니티', instiz: '유머·커뮤니티' };
+const SOURCE_DEFAULT = { navernews: '사회', pann: '생활·쇼핑', ytmusic: '연예·방송', theqoo: '유머·커뮤니티', dcbest: '유머·커뮤니티', clien: '유머·커뮤니티', ppomppu: '생활·쇼핑', ruliweb: '유머·커뮤니티', instiz: '유머·커뮤니티' };
 const byRule = (s) => RULES.find(([, re]) => re.test(s))?.[0];
 const classify = (it, src) => it.c ?? byRule(it.t) ?? byRule((it.news ?? []).map((n) => n.t).join(' ')) ?? byRule(it.nc ?? '') ?? SOURCE_DEFAULT[src] ?? '기타';
 
