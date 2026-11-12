@@ -4,10 +4,6 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const safe = (u) => (/^https?:\/\//i.test(u ?? '') ? esc(u) : '#');
 const link = (u, label) => `<a href="${safe(u)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>`;
 
-const COLORS = {
-  google: '#4285f4', nate: '#ff4d4d', navernews: '#03c75a', x: '#9aa4b1', youtube: '#ff3b30', ytmusic: '#ff3b30',
-  theqoo: '#7aa2ff', dcbest: '#4b62d1', fmkorea: '#5f8dff', ruliweb: '#3aa0ff', instiz: '#35c5a0', pann: '#ff7eb6',
-};
 const TABS = ['all', 'rising', 'cat', 'site', 'age'];
 const PERIOD_LABEL = { day: '일간', week: '주간', month: '월간' };
 const AGE_LABEL = { 10: '10대', 20: '20대', 30: '30대', 40: '40대', 50: '50대', 60: '60대 이상' };
@@ -16,29 +12,29 @@ const state = { tab: 'all', period: 'day', cat: '전체', group: '전체', age: 
 let data;
 let srcById = {};
 
-const srcChip = (id) => `<span class="src" style="--c:${COLORS[id] ?? '#888'}"><i></i>${esc(srcById[id]?.name ?? id)}</span>`;
-function delta(d, f) {
-  if (d === 'new' || f === 'new') return '<span class="badge new">NEW</span>';
-  if (d > 0) return `<span class="badge up">▲${d}</span>`;
-  if (f === 'up') return '<span class="badge up">▲</span>';
-  if (d < 0) return `<span class="badge down">▼${-d}</span>`;
+const srcName = (id) => esc(srcById[id]?.name ?? id);
+// 표시는 구분이 되는 경우에만: 순위가 3칸 이상 오르거나, 5위 안에 새로 들어온 항목
+function delta(d, f, r = 99) {
+  if ((d === 'new' || f === 'new') && r <= 5) return '<span class="tag new">NEW</span>';
+  if (d > 2) return `<span class="tag up">▲${d}</span>`;
+  if (f === 'up') return '<span class="tag up">▲</span>';
   return '';
 }
 
-function topicCard(t, i, { showWhy } = {}) {
+function topicCard(t, i, { showWhy, lead } = {}) {
   const extra = t.items.filter((it) => it.t !== t.t || it.s !== t.items[0].s);
   const news = t.news ?? [];
   const rel = [
-    ...extra.map((it) => `<li>${srcChip(it.s)}<span>${link(it.u, it.t)} <span class="m">${esc(it.m ?? '')}</span></span></li>`),
-    ...news.map((n) => `<li><span class="src"><i></i>${esc(n.s || '뉴스')}</span><span>${link(n.u, n.t)}</span></li>`),
+    ...extra.map((it) => `<li><span class="src">${srcName(it.s)}</span><span>${link(it.u, it.t)} <span class="m">${esc(it.m ?? '')}</span></span></li>`),
+    ...news.map((n) => `<li><span class="src">${esc(n.s || '뉴스')}</span><span>${link(n.u, n.t)}</span></li>`),
   ];
-  return `<li class="topic">
+  return `<li class="topic${lead ? ' lead-story' : ''}">
     <span class="rk">${i + 1}</span>
     <div class="body">
-      <div class="tt">${link(t.u, t.t)}${delta(t.d)}</div>
+      <div class="tt">${link(t.u, t.t)}${delta(t.d, undefined, i + 1)}</div>
       ${t.desc ? `<div class="desc">${esc(t.desc)}</div>` : ''}
       <div class="meta">
-        ${t.srcs.map(srcChip).join('')}
+        <span class="by">${t.srcs.map(srcName).join(' · ')}</span>
         <span class="cat">${esc(t.c)}</span>
         ${showWhy && t.why?.length ? `<span class="why">${esc(t.why.join(' · '))}</span>` : ''}
       </div>
@@ -50,8 +46,8 @@ function topicCard(t, i, { showWhy } = {}) {
 
 const itemRow = (it, withSrc) => `<li>
   <span class="n">${it.r}</span>
-  <span class="t">${link(it.u, it.t)}${delta(it.d, it.f)}
-    <span class="m">${withSrc ? `${esc(srcById[withSrc]?.name ?? '')}${it.m ? ' · ' : ''}` : ''}${esc(it.m ?? '')}</span></span>
+  <span class="t">${link(it.u, it.t)}${delta(it.d, it.f, it.r)}
+    <span class="m">${withSrc ? `${srcName(withSrc)}${it.m ? ' · ' : ''}` : ''}${esc(it.m ?? '')}</span></span>
 </li>`;
 
 function historyNote(p) {
@@ -66,15 +62,15 @@ function historyNote(p) {
 function viewAll(p) {
   const top = p.unified.slice(0, 40);
   return `<h1>${PERIOD_LABEL[state.period]} 통합 트렌드</h1>
-    <p class="lead">검색어·SNS·커뮤니티·뉴스를 한데 묶어, 여러 곳에서 높은 순위에 오른 이슈일수록 위에 놓았습니다.</p>
+    <p class="lead">검색어·SNS·커뮤니티·뉴스를 한데 묶어, 여러 곳에서 높은 순위에 오른 이슈일수록 위에 놓았습니다</p>
     ${historyNote(p)}
-    <ol class="topics">${top.map((t, i) => topicCard(t, i)).join('')}</ol>`;
+    <ol class="topics">${top.map((t, i) => topicCard(t, i, { lead: i === 0 })).join('')}</ol>`;
 }
 
 function viewRising() {
   const list = data.rising ?? [];
   return `<h1>급상승 이슈</h1>
-    <p class="lead">직전 수집 때보다 새로 올라왔거나 순위가 크게 뛴 이슈, 여러 사이트에 동시에 등장한 이슈입니다.</p>
+    <p class="lead">직전 수집 때보다 새로 올라왔거나 순위가 크게 뛴 이슈, 여러 사이트에 동시에 등장한 이슈입니다</p>
     ${list.length ? `<ol class="topics">${list.map((t, i) => topicCard(t, i, { showWhy: true })).join('')}</ol>` : '<p class="empty">지금은 급상승한 이슈가 없습니다.</p>'}`;
 }
 
@@ -86,7 +82,7 @@ function viewCat(p) {
   const topics = p.unified.filter((t) => t.c === state.cat).slice(0, 30);
   const items = posts.filter((it) => it.c === state.cat && srcById[it.s]?.kind === 'post').sort((a, b) => a.r - b.r).slice(0, 40);
   return `<h1>${PERIOD_LABEL[state.period]} 카테고리별 트렌드</h1>
-    <p class="lead">제목에 들어 있는 단어로 분류한 것이라 일부는 다른 카테고리에 들어갈 수 있습니다.</p>
+    <p class="lead">제목에 들어 있는 단어로 분류한 것이라 일부는 다른 카테고리에 들어갈 수 있습니다</p>
     <div class="chips">${cats.map((c) => `<button class="chip ${c === state.cat ? 'on' : ''}" data-cat="${esc(c)}">${esc(c)}<span class="n">${count(c)}</span></button>`).join('')}</div>
     ${historyNote(p)}
     <div class="cols">
@@ -99,16 +95,16 @@ function viewSite(p) {
   const groups = ['전체', ...new Set(data.sources.map((s) => s.group))];
   const list = data.sources.filter((s) => (state.group === '전체' || s.group === state.group) && p.bySource[s.id]?.length);
   return `<h1>${PERIOD_LABEL[state.period]} 사이트별 트렌드</h1>
-    <p class="lead">사이트마다 지금 가장 주목받는 검색어·글·영상입니다.</p>
+    <p class="lead">사이트마다 지금 가장 주목받는 검색어·글·영상입니다</p>
     <div class="chips">${groups.map((g) => `<button class="chip ${g === state.group ? 'on' : ''}" data-group="${esc(g)}">${esc(g)}</button>`).join('')}</div>
     ${historyNote(p)}
     <div class="grid">${list
       .map((s) => {
         const items = p.bySource[s.id];
         return `<section class="card">
-          <div class="card-head"><h2 style="--c:${COLORS[s.id] ?? '#888'}"><i></i>${link(s.home, s.name)}</h2><span class="g">${esc(s.group)}</span></div>
+          <div class="card-head"><h2>${link(s.home, s.name)}</h2><span class="g">${esc(s.group)}</span></div>
           <ol class="list short">${items.map((it) => itemRow(it)).join('')}</ol>
-          ${items.length > 10 ? `<button class="more" data-more>더 보기 (${items.length}개)</button>` : ''}
+          ${items.length > 10 ? `<button class="more" data-more>${items.length}개 모두 보기</button>` : ''}
         </section>`;
       })
       .join('')}</div>`;
@@ -117,7 +113,7 @@ function viewSite(p) {
 function viewAge() {
   const ages = data.ages?.[state.period];
   const head = `<h1>${PERIOD_LABEL[state.period]} 연령대별 관심사</h1>
-    <p class="lead">네이버 쇼핑에서 각 연령대가 많이 찾은 검색어입니다. <span class="uniq" style="margin:0">특징</span> 표시는 다른 연령대 상위권에는 없는 검색어입니다.</p>
+    <p class="lead">네이버 쇼핑에서 각 연령대가 많이 찾은 검색어입니다. <span class="uniq">특징</span> 표시는 다른 연령대 상위권에는 없는 검색어입니다</p>
     <p class="note">SNS·포털·커뮤니티는 이용자 연령을 공개하지 않습니다. 연령대가 실제로 집계되어 공개되는 자료는 네이버 데이터랩 쇼핑인사이트뿐이라, 이 탭은 그 자료만 사용합니다.</p>`;
   if (!ages) return `${head}<p class="empty">연령대별 자료를 아직 받지 못했습니다.</p>`;
   const cards = ages[state.age] ?? [];
