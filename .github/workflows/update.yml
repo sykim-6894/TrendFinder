@@ -2,8 +2,7 @@ name: Update data & deploy
 
 on:
   schedule:
-    - cron: '0 22 * * *' # 매일 07:00 KST
-    - cron: '0 10 * * *' # 매일 19:00 KST
+    - cron: '17 */2 * * *' # 2시간마다 (정각은 GitHub 예약이 몰려 늦어지므로 17분)
   workflow_dispatch:
   push:
     branches: [main]

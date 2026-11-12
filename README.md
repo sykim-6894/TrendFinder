@@ -1,6 +1,6 @@
 # TrendFinder
 
-포털 검색어·X(트위터)·유튜브·커뮤니티 인기글·뉴스 순위를 모아 일간·주간·월간 트렌드와 급상승 이슈를 보여 주는 정적 웹페이지. GitHub Actions가 하루 두 번(07:00·19:00 KST) 데이터를 갱신하고 GitHub Pages로 배포합니다. API 키·서버 불필요.
+포털 검색어·X(트위터)·유튜브·커뮤니티 인기글·뉴스 순위를 모아 일간·주간·월간 트렌드와 급상승 이슈를 보여 주는 정적 웹페이지. GitHub Actions가 2시간마다 데이터를 갱신하고(연령대별 자료는 하루 두 번) GitHub Pages로 배포합니다. API 키·서버 불필요.
 
 ## 구성
 
@@ -10,7 +10,7 @@
 | `scripts/update.mjs` | 수집 → 카테고리 분류 → 통합 이슈·급상승·기간별 집계 → `public/data/trends.json` |
 | `public/` | 배포되는 사이트 (`index.html`, `app.js`, `style.css`) |
 | `data/history.json` | 최근 35일 순위 기록 — 주간·월간 집계와 급상승 계산용 |
-| `.github/workflows/update.yml` | 하루 두 번 수집 → 커밋 → Pages 배포 |
+| `.github/workflows/update.yml` | 2시간마다 수집 → 커밋 → Pages 배포 |
 
 ## 수집처
 
@@ -47,7 +47,7 @@ npx serve public
 
 1. GitHub에 **public** 저장소를 만들고 push
 2. 저장소 Settings → Pages → Source를 **GitHub Actions**로 설정
-3. Actions 탭에서 `Update data & deploy`를 한 번 수동 실행 (이후 하루 두 번 자동)
+3. Actions 탭에서 `Update data & deploy`를 한 번 수동 실행 (이후 2시간마다 자동)
 4. (선택) 유튜브 전체 인기 급상승 영상을 넣으려면 YouTube Data API 키를 저장소 Secret `YT_API_KEY` 로 등록
 
 각 사이트와 제휴 관계가 없는 비공식 프로젝트입니다.

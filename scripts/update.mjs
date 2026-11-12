@@ -1,4 +1,4 @@
-// 트렌드를 수집해 public/data/trends.json 을 만든다. (하루 1~2회 실행, API 키 불필요)
+// 트렌드를 수집해 public/data/trends.json 을 만든다. (2시간마다 실행, API 키 불필요)
 // 사용: node scripts/update.mjs
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -294,13 +294,21 @@ async function collectAges() {
   }
   return out;
 }
+// 요청이 100건이 넘고 원본도 하루 한 번만 바뀌므로, 마지막으로 받은 지 11시간이 지났을 때만(하루 2번꼴) 다시 받는다
+const AGES_EVERY = 11 * 3600e3;
 let ages = prevOut?.ages ?? null;
+const agesAge = Date.now() - new Date(ages?.fetched ?? 0).getTime();
 try {
   if (process.env.SKIP_AGES) throw new Error('SKIP_AGES 로 건너뜀');
-  const got = await collectAges();
-  if (Object.values(got.day).some((v) => v.length)) ages = got;
-  status.datalab = 'ok';
-  console.log('✓ 네이버 데이터랩(연령대별)');
+  if (ages && agesAge < AGES_EVERY && !process.env.FORCE_AGES) {
+    status.datalab = 'ok';
+    console.log(`- 네이버 데이터랩(연령대별): ${(agesAge / 3600e3).toFixed(1)}시간 전에 받은 자료 유지`);
+  } else {
+    const got = await collectAges();
+    if (Object.values(got.day).some((v) => v.length)) ages = { ...got, fetched: new Date().toISOString() };
+    status.datalab = 'ok';
+    console.log('✓ 네이버 데이터랩(연령대별)');
+  }
 } catch (e) {
   status.datalab = ages ? 'stale' : 'fail';
   console.warn(`✗ 네이버 데이터랩: ${e.message}`);

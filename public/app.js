@@ -182,7 +182,7 @@ addEventListener('hashchange', () => {
   const failed = data.sources.filter((s) => s.status !== 'ok').map((s) => s.name);
   $('#foot').innerHTML = `<b>수집처</b> ${data.sources.map((s) => esc(s.name)).join(' · ')} · 네이버 데이터랩 쇼핑인사이트<br>
     ${failed.length ? `이번 갱신에서 받지 못한 곳: ${failed.map(esc).join(', ')}<br>` : ''}
-    하루 두 번(오전 7시·오후 7시) 자동 갱신됩니다. 각 사이트의 공개 순위를 모아 보여 주는 비공식 페이지이며, 제목과 링크의 저작권은 원 게시처에 있습니다.`;
+    2시간마다 자동 갱신됩니다(연령대별은 하루 두 번). 각 사이트의 공개 순위를 모아 보여 주는 비공식 페이지이며, 제목과 링크의 저작권은 원 게시처에 있습니다.`;
   readHash();
   render();
 })();
