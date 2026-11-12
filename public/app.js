@@ -121,7 +121,9 @@ function viewAge() {
     <p class="note">SNS·포털·커뮤니티는 이용자 연령을 공개하지 않습니다. 연령대가 실제로 집계되어 공개되는 자료는 네이버 데이터랩 쇼핑인사이트뿐이라, 이 탭은 그 자료만 사용합니다.</p>`;
   if (!ages) return `${head}<p class="empty">연령대별 자료를 아직 받지 못했습니다.</p>`;
   const cards = ages[state.age] ?? [];
-  return `${head}
+  const [, mm, dd] = (data.ages.date ?? '').split('-');
+  const base = mm ? `<p class="lead">${state.period === 'day' ? '' : `${state.period === 'week' ? '최근 7일' : '최근 30일'} · `}${+mm}월 ${+dd}일 기준 (네이버 집계가 하루쯤 늦게 올라옵니다)</p>` : '';
+  return `${head}${base}
     <div class="chips">${Object.keys(AGE_LABEL).map((a) => `<button class="chip ${a === state.age ? 'on' : ''}" data-age="${a}">${AGE_LABEL[a]}</button>`).join('')}</div>
     ${cards.length ? '' : '<p class="empty">이 기간의 자료가 없습니다.</p>'}
     <div class="grid">${cards

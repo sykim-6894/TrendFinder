@@ -268,8 +268,15 @@ const { rising, ...periodOut } = periods;
 
 // ── 연령대별 (네이버 쇼핑 검색어) ──────────────────────────────
 async function collectAges() {
-  const ranges = { day: [kst(1), kst(1)], week: [kst(7), kst(1)], month: [kst(30), kst(1)] };
-  const out = {};
+  // 데이터랩은 전날 집계가 늦게(보통 오전 중) 올라온다. 자료가 있는 가장 최근 날을 기준일로 삼는다
+  let last = 1;
+  while (last < 4 && !(await datalab({ cid: AGE_CATS[0][0], start: kst(last), end: kst(last), age: '20' })).length) {
+    last += 1;
+    await sleep(700);
+  }
+  if (last === 4) throw new Error('최근 3일 자료 없음');
+  const ranges = { day: [kst(last), kst(last)], week: [kst(last + 6), kst(last)], month: [kst(last + 29), kst(last)] };
+  const out = { date: kst(last) };
   for (const [period, [start, end]] of Object.entries(ranges)) {
     out[period] = Object.fromEntries(AGES.map((a) => [a, []]));
     for (const [cid, cat] of AGE_CATS) {
@@ -291,7 +298,7 @@ let ages = prevOut?.ages ?? null;
 try {
   if (process.env.SKIP_AGES) throw new Error('SKIP_AGES 로 건너뜀');
   const got = await collectAges();
-  if (Object.values(got.week).some((v) => v.length)) ages = got;
+  if (Object.values(got.day).some((v) => v.length)) ages = got;
   status.datalab = 'ok';
   console.log('✓ 네이버 데이터랩(연령대별)');
 } catch (e) {
